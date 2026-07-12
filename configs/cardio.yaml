@@ -1,4 +1,0 @@
-experiment: cardio
-models: [kan_mixed, kaam_mixed, kan, kaam, anm, dbcm, flow]
-include_interventions: false
-

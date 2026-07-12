@@ -19,6 +19,63 @@ from sklearn.model_selection import train_test_split
 from torch import nn
 from tqdm import tqdm
 
+def hsic_loss(X, residuals, sigma=None):
+    """
+    Compute the Hilbert-Schmidt Independence Criterion (HSIC) between the parents and the residuals.
+    It utilizes the Median Heuristic to dynamically adjust the RBF kernel bandwidth.
+
+    Parameters:
+    X : torch.Tensor
+        Input tensor of shape (batch_size, num_parents) representing parent nodes
+    residuals : torch.Tensor
+        Input tensor of shape (batch_size, 1) representing the estimated residuals
+    sigma : float, optional
+        Fixed bandwidth for the RBF kernel. If None, the Median Heuristic is used.
+    
+    Returns:
+    torch.Tensor
+        A scalar tensor representing the empirical HSIC value
+    """
+    m = X.size(0)
+    if m < 2:
+        return torch.tensor(0.0, device=X.device)
+    
+    H = torch.eye(m, device=X.device) - (1.0/m) * torch.ones((m, m), device=X.device)
+    
+    dist_X = torch.cdist(X, X, p=2)**2
+
+    if sigma is None:
+        with torch.no_grad():
+            triu_indices = torch.triu_indices(m, m, offset=1)
+            med_x = torch.median(dist_X[triu_indices[0], triu_indices[1]])
+            sigma_X = torch.sqrt(med_x) if med_x > 0 else torch.tensor(1.0, device=X.device)
+    else:
+        sigma_X = torch.tensor(sigma, device=X.device)
+
+
+    K = torch.exp(-dist_X / (2 * sigma_X**2))
+
+    res= residuals.view(m,-1)
+    dist_res = torch.cdist(res, res, p=2)**2
+
+    if sigma is None:
+        with torch.no_grad():
+            triu_indices = torch.triu_indices(m, m, offset=1)
+            med_res = torch.median(dist_res[triu_indices[0], triu_indices[1]])
+            sigma_res = torch.sqrt(med_res) if med_res > 0 else torch.tensor(1.0, device=X.device)
+    else:
+        sigma_res = torch.tensor(sigma, device=X.device)
+
+    L = torch.exp(-dist_res / (2 * sigma_res**2))
+
+    KH = torch.mm(K, H)
+    LH = torch.mm(L, H)
+    
+    # Compute HSIC
+    hsic_value = torch.trace(torch.mm(KH, LH)) / ((m - 1) ** 2)
+    
+    return hsic_value
+
 class kan_model_mixed(object):
     """
     Class for mixed KAN model for SCMs with both discrete and continuous variables.
@@ -63,7 +120,7 @@ class kan_model_mixed(object):
                     self.models[node] = kan_predictor(**params_disc)
                 else:
                     params_cont = deepcopy(params[node])
-                    params_cont['loss'] = 'mse'  # Continuous nodes use mse loss
+                    #params_cont['loss'] = 'mse'  # Continuous nodes use mse loss
                     self.models[node] = kan_predictor(**params_cont)
                     self.noise_models[node] = gcm.ScipyDistribution(norm)
 
@@ -356,12 +413,12 @@ class kan_predictor(object):
 
     def __init__(self, hidden_dim=0, batch_size=500, grid=1, k=1, seed=0, lr=0.01, early_stop=True, steps=10000,
                     lamb=0.1, lamb_entropy=0.1, sparse_init=False, mult_kan=False, try_gpu=False, loss='mse', num_classes=None,
-                 verbose=0, checkpoint_dir=None):
+                 verbose=0, checkpoint_dir=None, alpha_weight = 1.0, beta_weight = 0.5):
 
         self.hyperparameters = {'hidden_dim': hidden_dim, 'batch_size': batch_size, 'grid': grid, 'k': k, 'seed': seed,
                                 'lr': lr, 'early_stop': early_stop, 'steps': steps, 'lamb': lamb, 'lamb_entropy': lamb_entropy,
                                 'sparse_init': sparse_init, 'mult_kan': mult_kan, 'try_gpu': try_gpu, 'loss': loss, 'num_classes': num_classes,
-                                'verbose': verbose, 'checkpoint_dir': checkpoint_dir}
+                                'verbose': verbose, 'checkpoint_dir': checkpoint_dir, 'alpha_weight': alpha_weight, 'beta_weight': beta_weight}
         #self.classes = [0, 1]  # Note that this is only used by DoWhy for binary classification
 
     def seed_all(self, seed):
@@ -393,11 +450,11 @@ class kan_predictor(object):
 
     def set_params(self, hidden_dim=0, batch_size=500, grid=1, k=1, seed=0, lr=0.01, early_stop=True, steps=10000,
                     lamb=0.1, lamb_entropy=0.1, sparse_init=False, mult_kan=False, try_gpu=False, loss='mse', num_classes=None,
-                    verbose=0, checkpoint_dir=None):
+                    verbose=0, checkpoint_dir=None, alpha_weight=1.0, beta_weight=0.5):
         self.hyperparameters = {'hidden_dim': hidden_dim, 'batch_size': batch_size, 'grid': grid, 'k': k, 'seed': seed,
                                 'lr': lr, 'early_stop': early_stop, 'steps': steps, 'lamb': lamb, 'lamb_entropy': lamb_entropy,
                                 'sparse_init': sparse_init, 'mult_kan': mult_kan, 'try_gpu': try_gpu, 'loss': loss, 'num_classes': num_classes,
-                                'verbose': verbose, 'checkpoint_dir': checkpoint_dir}
+                                'verbose': verbose, 'checkpoint_dir': checkpoint_dir, 'alpha_weight': alpha_weight, 'beta_weight': beta_weight}
         return self
 
     def set_model(self, x_train, x_test, y_train, y_test):
@@ -459,13 +516,23 @@ class kan_predictor(object):
         # Note that KAN interface uses "test" for what we call "val": we reverse here for consistency
         self.dataset = {'train_input': self.x_train, 'train_label': self.y_train,
                         'test_input': self.x_test, 'test_label': self.y_test}
-        if self.hyperparameters['loss'] == 'mse':
-            self.criterion = nn.MSELoss()
-        elif self.hyperparameters['loss'] == 'discrete':
-            self.criterion = nn.CrossEntropyLoss()
-        else:
-            raise ValueError(f"Loss {self.hyperparameters['loss']} not recognized")
+        #PREVIOUS CODE JUST MSE
+        #if self.hyperparameters['loss'] == 'mse':
+        #    self.criterion = nn.MSELoss()
+        #elif self.hyperparameters['loss'] == 'discrete':
+        #    self.criterion = nn.CrossEntropyLoss()
+        #else:
+        #    raise ValueError(f"Loss {self.hyperparameters['loss']} not recognized")
 
+        available_losses = {'mse', 'hsic', 'hybrid'}
+        current_loss = self.hyperparameters['loss']
+
+        if current_loss not in available_losses:
+            raise ValueError(f"Loss {current_loss} not recognized. Options {available_losses}")
+        if current_loss in {'mse', 'hybrid'}:
+            self.criterion = nn.MSELoss()
+        elif current_loss == 'hsic':
+            self.criterion = None #NOT YET!!!!!!!
 
     def predict(self, X):
         if not torch.is_tensor(X):
@@ -553,9 +620,38 @@ class kan_predictor(object):
 
                 if _ % grid_update_freq == 0 and _ < stop_grid_update_step and update_grid and _ >= start_grid_update_step:
                     self.model.update_grid(dataset['train_input'][train_id])
+                #OLD VERSION WITH JUST MSE
+                #pred_train = self.model.forward(dataset['train_input'][train_id], singularity_avoiding=singularity_avoiding, y_th=y_th)
+                #train_loss = self.criterion(pred_train, dataset['train_label'][train_id])
+                
+                #NEW
+                x_batch = dataset['train_input'][train_id]
+                y_batch = dataset['train_label'][train_id]
 
-                pred_train = self.model.forward(dataset['train_input'][train_id], singularity_avoiding=singularity_avoiding, y_th=y_th)
-                train_loss = self.criterion(pred_train, dataset['train_label'][train_id])
+                #1. Obtain the prediction of KAN network
+                pred_train = self.model.forward(x_batch, singularity_avoiding=singularity_avoiding, y_th=y_th)
+
+                #2. Calculate residuos intermedios
+                residuals_train = y_batch - pred_train
+
+                #3. Aplicar estrategia seleccionada 
+                loss_strategy = self.hyperparameters['loss']
+
+                if loss_strategy == 'mse':
+                    train_loss = self.criterion(pred_train, y_batch)
+
+                elif loss_strategy == 'hsic':
+                    train_loss = hsic_loss(x_batch, residuals_train, sigma=1.0)
+                
+                elif loss_strategy == 'hybrid':
+                    alpha = self.hyperparameters.get('alpha_weight',1.0)
+                    beta_weight = self.hyperparameters.get('beta_weight',0.5)
+
+                    mse_part = self.criterion(pred_train, y_batch)
+                    hsic_part = hsic_loss(x_batch, residuals_train, sigma=1.0)
+                    train_loss = alpha * mse_part + beta_weight * hsic_part
+
+                
                 if self.model.save_act:
                     if reg_metric == 'edge_backward':
                         self.model.attribute()
@@ -568,9 +664,31 @@ class kan_predictor(object):
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
+            #OLD JUST MSE
+            #pred_test = self.model.forward(dataset['test_input'])
+            #test_loss = self.criterion(pred_test, dataset['test_label'])
 
-            pred_test = self.model.forward(dataset['test_input'])
-            test_loss = self.criterion(pred_test, dataset['test_label'])
+            #NEW
+            x_test = dataset['test_input']
+            y_test = dataset ['test_label']
+
+            pred_test = self.model.forward(x_test)
+            residuals_test = y_test - pred_test
+
+            if loss_strategy == 'mse':
+                    test_loss = self.criterion(pred_test, y_test)
+
+            elif loss_strategy == 'hsic':
+                test_loss = hsic_loss(x_test, residuals_test, sigma=1.0)
+                
+            elif loss_strategy == 'hybrid':
+                alpha = self.hyperparameters.get('alpha_weight',1.0)
+                beta_weight = self.hyperparameters.get('beta_weight',0.5)
+                mse_part_test = self.criterion(pred_test, y_test)
+                hsic_part_test = hsic_loss(x_test, residuals_test, sigma=1.0)
+                test_loss = alpha * mse_part_test + beta_weight * hsic_part_test
+
+
 
             # For conveniency, we get train loss and reg on the last batch only
 
