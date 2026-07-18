@@ -19,62 +19,42 @@ from sklearn.model_selection import train_test_split
 from torch import nn
 from tqdm import tqdm
 
-def hsic_loss(X, residuals, sigma=None):
-    """
-    Compute the Hilbert-Schmidt Independence Criterion (HSIC) between the parents and the residuals.
-    It utilizes the Median Heuristic to dynamically adjust the RBF kernel bandwidth.
+import torch
 
-    Parameters:
-    X : torch.Tensor
-        Input tensor of shape (batch_size, num_parents) representing parent nodes
-    residuals : torch.Tensor
-        Input tensor of shape (batch_size, 1) representing the estimated residuals
-    sigma : float, optional
-        Fixed bandwidth for the RBF kernel. If None, the Median Heuristic is used.
-    
-    Returns:
-    torch.Tensor
-        A scalar tensor representing the empirical HSIC value
-    """
+import torch
+
+def hsic_loss(X, residuals, sigma=None):
     m = X.size(0)
-    if m < 2:
+    if m < 2: 
         return torch.tensor(0.0, device=X.device)
     
     H = torch.eye(m, device=X.device) - (1.0/m) * torch.ones((m, m), device=X.device)
     
-    dist_X = torch.cdist(X, X, p=2)**2
+    def compute_kernel(data):
+        # Aseguramos que data sea de 2 dimensiones
+        dist = torch.cdist(data.view(m, -1), data.view(m, -1), p=2)**2
+        
+        if sigma is None:
+            # Apagamos los gradientes para la heurística y ahorramos memoria
+            with torch.no_grad():
+                triu_indices = torch.triu_indices(m, m, offset=1)
+                med = torch.median(dist[triu_indices[0], triu_indices[1]])
+                # Mantenemos el divisor matemático estándar (2 * mediana)
+                s2 = med if med > 0 else torch.tensor(1.0, device=data.device)
+        else:
+            s2 = torch.tensor(sigma**2, device=data.device)
+            
+        return torch.exp(-dist / (2.0 * s2))
 
-    if sigma is None:
-        with torch.no_grad():
-            triu_indices = torch.triu_indices(m, m, offset=1)
-            med_x = torch.median(dist_X[triu_indices[0], triu_indices[1]])
-            sigma_X = torch.sqrt(med_x) if med_x > 0 else torch.tensor(1.0, device=X.device)
-    else:
-        sigma_X = torch.tensor(sigma, device=X.device)
+    # Calculamos los kernels de forma modular
+    K = compute_kernel(X)
+    L = compute_kernel(residuals)
 
-
-    K = torch.exp(-dist_X / (2 * sigma_X**2))
-
-    res= residuals.view(m,-1)
-    dist_res = torch.cdist(res, res, p=2)**2
-
-    if sigma is None:
-        with torch.no_grad():
-            triu_indices = torch.triu_indices(m, m, offset=1)
-            med_res = torch.median(dist_res[triu_indices[0], triu_indices[1]])
-            sigma_res = torch.sqrt(med_res) if med_res > 0 else torch.tensor(1.0, device=X.device)
-    else:
-        sigma_res = torch.tensor(sigma, device=X.device)
-
-    L = torch.exp(-dist_res / (2 * sigma_res**2))
-
+    # Computamos HSIC
     KH = torch.mm(K, H)
     LH = torch.mm(L, H)
     
-    # Compute HSIC
-    hsic_value = torch.trace(torch.mm(KH, LH)) / ((m - 1) ** 2)
-    
-    return hsic_value
+    return torch.trace(torch.mm(KH, LH)) / ((m - 1) ** 2)
 
 class kan_model_mixed(object):
     """
