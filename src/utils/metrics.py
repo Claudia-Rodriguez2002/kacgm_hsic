@@ -5,6 +5,8 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, euclidean_distances
 from sklearn.metrics.pairwise import rbf_kernel
 from sklearn.model_selection import train_test_split
+import torch
+from models.kan import hsic_loss
 
 
 def rf(source, generated, split=0.8, seed=42):
@@ -88,10 +90,24 @@ def dHSIC_calc(K_list):
     return term1 + term2 - term3
 
 
-def HSIC(x, y):
-    Kx = centering(gaussian_grammat(x))
-    Ky = centering(gaussian_grammat(y))
-    return np.trace(np.matmul(Kx, Ky))
+def HSIC(x, y, sigma=None):
+    """Normalized HSIC between x and y.
+
+    Delegates to models.kan.hsic_loss (converting numpy <-> torch) so this
+    evaluation metric always matches the normalized HSIC used as the KAN
+    training/early-stopping loss, instead of maintaining a second,
+    independently-drifting kernel implementation. sigma=None keeps the
+    previous behavior of a per-kernel median heuristic.
+    """
+
+    x_t = torch.as_tensor(np.asarray(x, dtype=np.float64), dtype=torch.float32)
+    y_t = torch.as_tensor(np.asarray(y, dtype=np.float64), dtype=torch.float32)
+    if x_t.ndim == 1:
+        x_t = x_t.unsqueeze(-1)
+    if y_t.ndim == 1:
+        y_t = y_t.unsqueeze(-1)
+    value = hsic_loss(x_t, y_t, sigma=sigma, normalized=True)
+    return float(value.detach().cpu().numpy())
 
 
 def dHSIC(*argv):

@@ -19,21 +19,27 @@ from sklearn.model_selection import train_test_split
 from torch import nn
 from tqdm import tqdm
 
-import torch
+def hsic_loss(X, residuals, sigma=None, normalized=True, eps=1e-8):
+    """HSIC dependence between inputs X and residuals.
 
-import torch
+    normalized=True returns the normalized HSIC (nHSIC), guaranteed to lie in
+    [0, 1] by the Cauchy-Schwarz inequality: 0 means X and residuals are
+    independent (the goal), 1 means maximal dependence. This makes the value
+    scale-free (independent of kernel bandwidth and the marginal scales of X
+    and the residuals) and comparable across nodes/batches.
 
-def hsic_loss(X, residuals, sigma=None):
+    normalized=False returns the raw biased HSIC estimator, tr(KHLH)/(m-1)^2.
+    """
     m = X.size(0)
-    if m < 2: 
+    if m < 2:
         return torch.tensor(0.0, device=X.device)
-    
+
     H = torch.eye(m, device=X.device) - (1.0/m) * torch.ones((m, m), device=X.device)
-    
+
     def compute_kernel(data):
         # Aseguramos que data sea de 2 dimensiones
         dist = torch.cdist(data.view(m, -1), data.view(m, -1), p=2)**2
-        
+
         if sigma is None:
             # Apagamos los gradientes para la heurística y ahorramos memoria
             with torch.no_grad():
@@ -43,7 +49,7 @@ def hsic_loss(X, residuals, sigma=None):
                 s2 = med if med > 0 else torch.tensor(1.0, device=data.device)
         else:
             s2 = torch.tensor(sigma**2, device=data.device)
-            
+
         return torch.exp(-dist / (2.0 * s2))
 
     # Calculamos los kernels de forma modular
@@ -53,8 +59,17 @@ def hsic_loss(X, residuals, sigma=None):
     # Computamos HSIC
     KH = torch.mm(K, H)
     LH = torch.mm(L, H)
-    
-    return torch.trace(torch.mm(KH, LH)) / ((m - 1) ** 2)
+
+    hsic_xy = torch.trace(torch.mm(KH, LH))  # dependence X <-> residuals
+
+    if normalized:
+        # Self-dependence terms; the (m-1)^2 factor cancels in the ratio, so
+        # we work with the raw traces directly.
+        hsic_xx = torch.trace(torch.mm(KH, KH))
+        hsic_yy = torch.trace(torch.mm(LH, LH))
+        return hsic_xy / (torch.sqrt(hsic_xx * hsic_yy) + eps)
+
+    return hsic_xy / ((m - 1) ** 2)
 
 class kan_model_mixed(object):
     """
@@ -420,7 +435,7 @@ class kan_predictor(object):
         results = self.custom_fit(self.dataset, batch=self.hyperparameters["batch_size"],
                                   steps=self.hyperparameters["steps"], lamb=self.hyperparameters["lamb"],
                                   lamb_entropy=self.hyperparameters["lamb_entropy"], lr=self.hyperparameters["lr"],
-                                  early_stop=self.hyperparameters["early_stop"], patience=10,
+                                  early_stop=self.hyperparameters["early_stop"], patience=30,
                                   save_fig=False, verbose=self.hyperparameters['verbose'])
 
         return {'model': self.model, 'y_pred': self.predict(self.x_test), 'train_results': results}
