@@ -6,7 +6,7 @@ from sklearn.metrics import accuracy_score, euclidean_distances
 from sklearn.metrics.pairwise import rbf_kernel
 from sklearn.model_selection import train_test_split
 import torch
-from models.kan import hsic_loss
+from src.models.kan import hsic_loss
 
 
 def rf(source, generated, split=0.8, seed=42):

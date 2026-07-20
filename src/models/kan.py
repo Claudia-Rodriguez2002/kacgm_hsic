@@ -595,7 +595,7 @@ class kan_predictor(object):
 
         best_loss = np.inf
         patience_counter = 0
-
+        train_loss_all = []
         for _ in pbar:
 
             if _ == steps - 1 and old_save_act:
@@ -636,16 +636,17 @@ class kan_predictor(object):
                     train_loss = self.criterion(pred_train, y_batch)
 
                 elif loss_strategy == 'hsic':
-                    train_loss = hsic_loss(x_batch, residuals_train, sigma=1.0)
+                    train_loss = hsic_loss(x_batch, residuals_train, normalized = True, sigma=1.0)
                 
                 elif loss_strategy == 'hybrid':
                     alpha = self.hyperparameters.get('alpha_weight',1.0)
                     beta_weight = self.hyperparameters.get('beta_weight',0.5)
-
+                    if (_ == 1):
+                        mse_inicial = self.criterion(pred_train, y_batch)
                     mse_part = self.criterion(pred_train, y_batch)
-                    hsic_part = hsic_loss(x_batch, residuals_train, sigma=1.0)
-                    train_loss = alpha * mse_part + beta_weight * hsic_part
-
+                    hsic_part = hsic_loss(x_batch, residuals_train, normalized = True,sigma=1.0)
+                    train_loss = alpha * mse_part/mse_inicial  + beta_weight * hsic_part #divido entre el vlaor inicalcpara que sean comparbles el mse y el HSIC 
+                    train_loss_all.append(train_loss)
                 
                 if self.model.save_act:
                     if reg_metric == 'edge_backward':
@@ -674,13 +675,13 @@ class kan_predictor(object):
                     test_loss = self.criterion(pred_test, y_test)
 
             elif loss_strategy == 'hsic':
-                test_loss = hsic_loss(x_test, residuals_test, sigma=1.0)
+                test_loss = hsic_loss(x_test, residuals_test, normalized = True, sigma=1.0)
                 
             elif loss_strategy == 'hybrid':
                 alpha = self.hyperparameters.get('alpha_weight',1.0)
                 beta_weight = self.hyperparameters.get('beta_weight',0.5)
                 mse_part_test = self.criterion(pred_test, y_test)
-                hsic_part_test = hsic_loss(x_test, residuals_test, sigma=1.0)
+                hsic_part_test = hsic_loss(x_test, residuals_test, normalized = True, sigma=1.0)
                 test_loss = alpha * mse_part_test + beta_weight * hsic_part_test
 
 
@@ -728,7 +729,7 @@ class kan_predictor(object):
         self.model.log_history('fit')
         # revert back to original state
         self.model.symbolic_enabled = old_symbolic_enabled
-        return results
+        return results, train_loss_all
 
     def prune(self):
         self.model = self.model.prune()
