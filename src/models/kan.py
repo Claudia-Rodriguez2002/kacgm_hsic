@@ -122,6 +122,7 @@ class kan_model_mixed(object):
     def fit(self, data):
         if self.verbose>0:
             print("Fitting KAN model...")
+        fit_results = {}
         for node in self.nodes:
             if self.verbose>0:
                 print('Fitting node {}...'.format(node))
@@ -130,13 +131,14 @@ class kan_model_mixed(object):
                 Y = data[node].to_numpy()
                 if len(Y.shape) == 1:
                     Y = Y.reshape(-1, 1)
-                self.models[node].fit(X, Y)
+                fit_results[node] = self.models[node].fit(X, Y)
                 # Now, fit the noise model if the node is continuous
                 if self.node_types[node] == 'continuous':
                     residuals = Y.flatten() - self.models[node].predict(X).flatten()
                     self.noise_models[node].fit(residuals)
             else:
                 self.models[node].fit(data[node].to_numpy())
+        return fit_results
 
 
     def draw_samples(self, num_samples, seed=42):
@@ -432,13 +434,13 @@ class kan_predictor(object):
         # Train the model
         #self.model.save_act = True
         #self.model.speed()
-        results = self.custom_fit(self.dataset, batch=self.hyperparameters["batch_size"],
+        results, train_all_loss= self.custom_fit(self.dataset, batch=self.hyperparameters["batch_size"],
                                   steps=self.hyperparameters["steps"], lamb=self.hyperparameters["lamb"],
                                   lamb_entropy=self.hyperparameters["lamb_entropy"], lr=self.hyperparameters["lr"],
                                   early_stop=self.hyperparameters["early_stop"], patience=30,
                                   save_fig=False, verbose=self.hyperparameters['verbose'])
 
-        return {'model': self.model, 'y_pred': self.predict(self.x_test), 'train_results': results}
+        return {'model': self.model, 'y_pred': self.predict(self.x_test), 'train_results': results, 'lista_loss': train_all_loss}
 
     def get_params(self, deep=False):
         return self.hyperparameters
@@ -596,6 +598,7 @@ class kan_predictor(object):
         best_loss = np.inf
         patience_counter = 0
         train_loss_all = []
+        mse_inicial = None
         for _ in pbar:
 
             if _ == steps - 1 and old_save_act:
@@ -633,7 +636,12 @@ class kan_predictor(object):
                 loss_strategy = self.hyperparameters['loss']
 
                 if loss_strategy == 'mse':
-                    train_loss = self.criterion(pred_train, y_batch)
+                    mse_part = self.criterion(pred_train, y_batch)
+                    if mse_inicial is None:
+                        # Same normalization as 'hybrid': divide by the initial MSE
+                        # (fixed constant, detached) so the curve is comparable across strategies.
+                        mse_inicial = mse_part.detach()
+                    train_loss = mse_part / mse_inicial
 
                 elif loss_strategy == 'hsic':
                     train_loss = hsic_loss(x_batch, residuals_train, normalized = True, sigma=1.0)
@@ -641,13 +649,16 @@ class kan_predictor(object):
                 elif loss_strategy == 'hybrid':
                     alpha = self.hyperparameters.get('alpha_weight',1.0)
                     beta_weight = self.hyperparameters.get('beta_weight',0.5)
-                    if (_ == 1):
-                        mse_inicial = self.criterion(pred_train, y_batch)
                     mse_part = self.criterion(pred_train, y_batch)
+                    if mse_inicial is None:
+                        # Detach: mse_inicial must be a fixed constant, not part of the
+                        # autograd graph, since it's reused across many later backward() calls.
+                        mse_inicial = mse_part.detach()
                     hsic_part = hsic_loss(x_batch, residuals_train, normalized = True,sigma=1.0)
-                    train_loss = alpha * mse_part/mse_inicial  + beta_weight * hsic_part #divido entre el vlaor inicalcpara que sean comparbles el mse y el HSIC 
-                    train_loss_all.append(train_loss)
-                
+                    train_loss = alpha * mse_part/mse_inicial  + beta_weight * hsic_part #divido entre el vlaor inicalcpara que sean comparbles el mse y el HSIC
+
+                train_loss_all.append(train_loss)
+
                 if self.model.save_act:
                     if reg_metric == 'edge_backward':
                         self.model.attribute()
@@ -672,7 +683,8 @@ class kan_predictor(object):
             residuals_test = y_test - pred_test
 
             if loss_strategy == 'mse':
-                    test_loss = self.criterion(pred_test, y_test)
+                    mse_part_test = self.criterion(pred_test, y_test)
+                    test_loss = mse_part_test / mse_inicial
 
             elif loss_strategy == 'hsic':
                 test_loss = hsic_loss(x_test, residuals_test, normalized = True, sigma=1.0)
@@ -682,7 +694,7 @@ class kan_predictor(object):
                 beta_weight = self.hyperparameters.get('beta_weight',0.5)
                 mse_part_test = self.criterion(pred_test, y_test)
                 hsic_part_test = hsic_loss(x_test, residuals_test, normalized = True, sigma=1.0)
-                test_loss = alpha * mse_part_test + beta_weight * hsic_part_test
+                test_loss = alpha * mse_part_test/mse_inicial + beta_weight * hsic_part_test
 
 
 
@@ -720,6 +732,7 @@ class kan_predictor(object):
                 if results['test_loss'][-1] < best_loss:
                     best_loss = results['test_loss'][-1]
                     patience_counter = 0
+                    best_state = deepcopy(self.model.state_dict())   # ← save the GOOD weights
                 else:
                     patience_counter += 1
                     if patience_counter > patience:
@@ -729,6 +742,7 @@ class kan_predictor(object):
         self.model.log_history('fit')
         # revert back to original state
         self.model.symbolic_enabled = old_symbolic_enabled
+        self.model.load_state_dict(best_state)
         return results, train_loss_all
 
     def prune(self):
