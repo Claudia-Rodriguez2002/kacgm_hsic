@@ -598,7 +598,16 @@ class kan_predictor(object):
         best_loss = np.inf
         patience_counter = 0
         train_loss_all = []
-        mse_inicial = None
+
+        # NMSE normalization anchor: Var(Y) of the training labels.
+        eps_norm = 1e-8
+        y_train_full = dataset['train_label'].float()
+        if y_train_full.dim() <= 1:
+            y_var = torch.var(y_train_full, unbiased=False)
+        else:
+            y_var = torch.var(y_train_full, dim=0, unbiased=False).mean()
+        y_var = torch.clamp(y_var.detach(), min=eps_norm)
+
         for _ in pbar:
 
             if _ == steps - 1 and old_save_act:
@@ -637,11 +646,8 @@ class kan_predictor(object):
 
                 if loss_strategy == 'mse':
                     mse_part = self.criterion(pred_train, y_batch)
-                    if mse_inicial is None:
-                        # Same normalization as 'hybrid': divide by the initial MSE
-                        # (fixed constant, detached) so the curve is comparable across strategies.
-                        mse_inicial = mse_part.detach()
-                    train_loss = mse_part / mse_inicial
+                    # NMSE: fraction of variance unexplained (1 - R^2).
+                    train_loss = mse_part / y_var
 
                 elif loss_strategy == 'hsic':
                     train_loss = hsic_loss(x_batch, residuals_train, normalized = True, sigma=1.0)
@@ -650,12 +656,10 @@ class kan_predictor(object):
                     alpha = self.hyperparameters.get('alpha_weight',1.0)
                     beta_weight = self.hyperparameters.get('beta_weight',0.5)
                     mse_part = self.criterion(pred_train, y_batch)
-                    if mse_inicial is None:
-                        # Detach: mse_inicial must be a fixed constant, not part of the
-                        # autograd graph, since it's reused across many later backward() calls.
-                        mse_inicial = mse_part.detach()
                     hsic_part = hsic_loss(x_batch, residuals_train, normalized = True,sigma=1.0)
-                    train_loss = alpha * mse_part/mse_inicial  + beta_weight * hsic_part #divido entre el vlaor inicalcpara que sean comparbles el mse y el HSIC
+                    # NMSE (mse/Var(Y)) and normalized HSIC share the same [0,1] scale,
+                    # so alpha/beta act as honest balancing weights.
+                    train_loss = alpha * mse_part/y_var + beta_weight * hsic_part
 
                 train_loss_all.append(train_loss)
 
@@ -684,7 +688,8 @@ class kan_predictor(object):
 
             if loss_strategy == 'mse':
                     mse_part_test = self.criterion(pred_test, y_test)
-                    test_loss = mse_part_test / mse_inicial
+                    # Same Var(Y) anchor (from the training labels) as the train NMSE.
+                    test_loss = mse_part_test / y_var
 
             elif loss_strategy == 'hsic':
                 test_loss = hsic_loss(x_test, residuals_test, normalized = True, sigma=1.0)
@@ -694,7 +699,7 @@ class kan_predictor(object):
                 beta_weight = self.hyperparameters.get('beta_weight',0.5)
                 mse_part_test = self.criterion(pred_test, y_test)
                 hsic_part_test = hsic_loss(x_test, residuals_test, normalized = True, sigma=1.0)
-                test_loss = alpha * mse_part_test/mse_inicial + beta_weight * hsic_part_test
+                test_loss = alpha * mse_part_test/y_var + beta_weight * hsic_part_test
 
 
 
