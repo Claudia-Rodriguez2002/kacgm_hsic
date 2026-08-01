@@ -221,6 +221,141 @@ def resolve_cardio_best_params(
     return best_params
 
 
+def _hybrid_node_params(arch_params, graph, beta, checkpoint_dir=None):
+    """Overlay the hybrid loss weights (alpha = 1 - beta) on a fixed per-node architecture."""
+    params = {}
+    for node in graph.nodes:
+        if graph.in_degree(node) == 0:
+            continue
+        node_params = deepcopy(arch_params[node])
+        node_params["loss"] = "hybrid"
+        node_params["alpha_weight"] = round(1.0 - float(beta), 2)
+        node_params["beta_weight"] = float(beta)
+        if checkpoint_dir is not None:
+            from utils.paths import slugify
+
+            node_params["checkpoint_dir"] = str(Path(checkpoint_dir) / slugify(str(node)))
+        params[node] = node_params
+    return params
+
+
+def sweep_beta_weight(
+    model_name,
+    arch_params,
+    beta_values,
+    graph,
+    factual_train,
+    factual_eval,
+    num_classes,
+    node_types=None,
+    dataset="cardio",
+    n_jobs=1,
+    verbose=False,
+    sample_seed=42,
+):
+    """Search the hybrid-loss weight beta over a fixed per-node architecture.
+
+    Stage 2 of the two-stage search: `arch_params` comes from `get_best_hyperparams`
+    (which fixes hidden_dim/grid/k/lr/lamb/mult_kan per node at beta=0), and only the
+    loss weighting varies here, with alpha = 1 - beta as in the Experimento1 reference.
+
+    One whole-model fit per beta, scored with the same criterion `get_best_hyperparams`
+    uses -- minimise rf_acc[node] + rf_acc["all"]. Beta is selected only for continuous
+    nodes: `kan_model_mixed` overrides discrete nodes to a cross-entropy loss, so no
+    residual exists there for the HSIC term to act on and beta is inert.
+
+    Returns (best_params_per_node, sweep_frame).
+    """
+    from joblib import Parallel, delayed
+
+    from models.kan import kan_model_mixed
+    from utils.metrics import mmd, rf
+    from utils.paths import get_global_checkpoint_root, make_run_id, slugify
+
+    beta_values = [round(float(beta), 4) for beta in beta_values]
+    scored_nodes = [node for node in graph.nodes if graph.in_degree(node) > 0]
+
+    if node_types is None:
+        example = next(iter(arch_params.values()))
+        node_types = example["node_types"]
+
+    checkpoint_root = get_global_checkpoint_root() / slugify(dataset) / slugify(f"{model_name}_beta")
+    checkpoint_root.mkdir(parents=True, exist_ok=True)
+
+    discrete_columns = [node for node in factual_eval.columns if len(factual_eval[node].unique()) <= 5]
+
+    def evaluate_beta(beta):
+        candidate_checkpoint = checkpoint_root / make_run_id(f"{dataset}_{model_name}_b{beta}")
+        candidate_checkpoint.mkdir(parents=True, exist_ok=True)
+        params = _hybrid_node_params(arch_params, graph, beta, candidate_checkpoint)
+
+        model = kan_model_mixed(graph, deepcopy(params))
+        model.fit(data=factual_train)
+
+        np.random.seed(sample_seed)
+        obs_samples = model.draw_samples(num_samples=len(factual_eval), seed=sample_seed)
+        obs_samples = obs_samples[factual_eval.columns]
+        if discrete_columns:
+            obs_samples[discrete_columns] = obs_samples[discrete_columns].round().astype(int)
+            for node in discrete_columns:
+                obs_samples[node] = obs_samples[node].clip(0, num_classes[node] - 1)
+
+        metric_mmd = {}
+        metric_rf_acc = {}
+        for node in scored_nodes:
+            metric_mmd[node] = float(mmd(factual_eval[node].to_numpy().reshape(-1, 1), obs_samples[node].to_numpy().reshape(-1, 1)))
+            metric_rf_acc[node] = float(rf(factual_eval[node].to_numpy().reshape(-1, 1), obs_samples[node].to_numpy().reshape(-1, 1), seed=int(sample_seed)))
+        metric_mmd["all"] = float(mmd(factual_eval.to_numpy(), obs_samples.to_numpy()))
+        metric_rf_acc["all"] = float(rf(factual_eval.to_numpy(), obs_samples.to_numpy(), seed=int(sample_seed)))
+
+        if verbose:
+            print(f"[{model_name}] beta={beta} alpha={round(1.0 - beta, 2)} -> RF ACC: {metric_rf_acc}")
+        return beta, metric_mmd, metric_rf_acc
+
+    print(f"Sweeping beta for {model_name} on {dataset} over {len(beta_values)} values: {beta_values}")
+    sweep = Parallel(n_jobs=n_jobs)(delayed(evaluate_beta)(beta) for beta in beta_values)
+    scores = {beta: (metric_mmd, metric_rf_acc) for beta, metric_mmd, metric_rf_acc in sweep}
+
+    # Per-node criterion, identical to get_best_hyperparams: lower RF accuracy is better.
+    best_beta = {}
+    for node in scored_nodes:
+        if node_types[node] == "continuous":
+            best_beta[node] = min(beta_values, key=lambda beta: scores[beta][1][node] + scores[beta][1]["all"])
+        else:
+            best_beta[node] = 0.0  # Inert: kan_model_mixed forces these onto cross-entropy
+
+    best_params = {}
+    for node in scored_nodes:
+        node_params = _hybrid_node_params(arch_params, graph, best_beta[node])[node]
+        node_params.pop("checkpoint_dir", None)
+        best_params[node] = node_params
+
+    rows = []
+    for beta in beta_values:
+        metric_mmd, metric_rf_acc = scores[beta]
+        for node in scored_nodes:
+            rows.append(
+                {
+                    "model_name": model_name,
+                    "node": node,
+                    "node_type": node_types[node],
+                    "beta": beta,
+                    "alpha": round(1.0 - beta, 2),
+                    "mmd": metric_mmd[node],
+                    "rf_acc": metric_rf_acc[node],
+                    "mmd_all": metric_mmd["all"],
+                    "rf_acc_all": metric_rf_acc["all"],
+                    "criterion": metric_rf_acc[node] + metric_rf_acc["all"],
+                    "searched": node_types[node] == "continuous",
+                    "selected": beta == best_beta[node],
+                }
+            )
+    sweep_frame = pd.DataFrame(rows).sort_values(["node", "beta"]).reset_index(drop=True)
+
+    print(f"Best beta for {model_name}: { {node: best_beta[node] for node in scored_nodes} }")
+    return best_params, sweep_frame
+
+
 def fit_cardio_model(
     model_name,
     graph_cardio,

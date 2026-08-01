@@ -31,8 +31,8 @@ class CardioPreparedData:
 def load_cardio_dataframe(path=None):
     csv_path = resolve_path(path) if path is not None else RAW_DATA_ROOT / CARDIO_FILENAME
     data_cardio = pd.read_csv(csv_path)
-    data_cardio = data_cardio.drop(columns=CARDIO_DROP_COLUMNS)
-    data_cardio = data_cardio.rename(columns=CARDIO_RENAME_MAP)
+    # data_cardio = data_cardio.drop(columns=CARDIO_DROP_COLUMNS)
+    # data_cardio = data_cardio.rename(columns=CARDIO_RENAME_MAP)
     data_cardio = data_cardio.dropna()
     return data_cardio
 

@@ -521,13 +521,15 @@ class kan_predictor(object):
         #else:
         #    raise ValueError(f"Loss {self.hyperparameters['loss']} not recognized")
 
-        available_losses = {'mse', 'hsic', 'hybrid'}
+        available_losses = {'mse', 'hsic', 'hybrid', 'discrete'}
         current_loss = self.hyperparameters['loss']
 
         if current_loss not in available_losses:
             raise ValueError(f"Loss {current_loss} not recognized. Options {available_losses}")
         if current_loss in {'mse', 'hybrid'}:
             self.criterion = nn.MSELoss()
+        elif current_loss == 'discrete':
+            self.criterion = nn.CrossEntropyLoss()  # Discrete nodes are classifiers, not additive-noise models
         elif current_loss == 'hsic':
             self.criterion = None #NOT YET!!!!!!!
 
@@ -598,15 +600,20 @@ class kan_predictor(object):
         best_loss = np.inf
         patience_counter = 0
         train_loss_all = []
+        best_state = None  # Only populated when early_stop is on; final weights are kept otherwise
 
-        # NMSE normalization anchor: Var(Y) of the training labels.
-        eps_norm = 1e-8
-        y_train_full = dataset['train_label'].float()
-        if y_train_full.dim() <= 1:
-            y_var = torch.var(y_train_full, unbiased=False)
-        else:
-            y_var = torch.var(y_train_full, dim=0, unbiased=False).mean()
-        y_var = torch.clamp(y_var.detach(), min=eps_norm)
+        loss_strategy = self.hyperparameters['loss']
+
+        # NMSE normalization anchor: Var(Y) of the training labels (unused for 'discrete').
+        y_var = None
+        if loss_strategy != 'discrete':
+            eps_norm = 1e-8
+            y_train_full = dataset['train_label'].float()
+            if y_train_full.dim() <= 1:
+                y_var = torch.var(y_train_full, unbiased=False)
+            else:
+                y_var = torch.var(y_train_full, dim=0, unbiased=False).mean()
+            y_var = torch.clamp(y_var.detach(), min=eps_norm)
 
         for _ in pbar:
 
@@ -638,13 +645,14 @@ class kan_predictor(object):
                 #1. Obtain the prediction of KAN network
                 pred_train = self.model.forward(x_batch, singularity_avoiding=singularity_avoiding, y_th=y_th)
 
-                #2. Calculate residuos intermedios
-                residuals_train = y_batch - pred_train
+                #2. Calculate residuos intermedios (undefined for classifiers: labels are class indices)
+                residuals_train = None if loss_strategy == 'discrete' else y_batch - pred_train
 
-                #3. Aplicar estrategia seleccionada 
-                loss_strategy = self.hyperparameters['loss']
+                #3. Aplicar estrategia seleccionada
+                if loss_strategy == 'discrete':
+                    train_loss = self.criterion(pred_train, y_batch)
 
-                if loss_strategy == 'mse':
+                elif loss_strategy == 'mse':
                     mse_part = self.criterion(pred_train, y_batch)
                     # NMSE: fraction of variance unexplained (1 - R^2).
                     train_loss = mse_part / y_var
@@ -684,9 +692,12 @@ class kan_predictor(object):
             y_test = dataset ['test_label']
 
             pred_test = self.model.forward(x_test)
-            residuals_test = y_test - pred_test
+            residuals_test = None if loss_strategy == 'discrete' else y_test - pred_test
 
-            if loss_strategy == 'mse':
+            if loss_strategy == 'discrete':
+                test_loss = self.criterion(pred_test, y_test)
+
+            elif loss_strategy == 'mse':
                     mse_part_test = self.criterion(pred_test, y_test)
                     # Same Var(Y) anchor (from the training labels) as the train NMSE.
                     test_loss = mse_part_test / y_var
@@ -747,7 +758,8 @@ class kan_predictor(object):
         self.model.log_history('fit')
         # revert back to original state
         self.model.symbolic_enabled = old_symbolic_enabled
-        self.model.load_state_dict(best_state)
+        if best_state is not None:
+            self.model.load_state_dict(best_state)
         return results, train_loss_all
 
     def prune(self):
@@ -963,12 +975,14 @@ class symbolic_kan_regressor(object):  # Class implemented for symbolic regressi
 
         assert len(kan_object.width_in) == 2, "This class only supports single-layer KAN objects"
 
-        if self.loss == 'mse':
+        if self.loss in {'mse', 'hsic', 'hybrid'}:  # All regression losses share the additive-noise output shape
             assert kan_object.width_out[1] == self.n_outputs, "The number of outputs in the KAN object does not match the number of expected values for Y and the loss function " + str(self.loss)
             binary = False
-        else:
+        elif self.loss == 'discrete':
             assert kan_object.width_out[1] == 2, "For classification, only binary classification is supported so far"
             binary = True
+        else:
+            raise ValueError(f"Loss {self.loss} not recognized")
 
         x_train, x_test, y_train, y_test = train_test_split(X, Y, test_size=val_split, random_state=0)
 
