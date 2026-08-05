@@ -1,0 +1,9 @@
+Experimento,beta_optima,MAE(Z) beta=0,MAE(Z) beta_optima,"HSIC(Z,X) beta=0","HSIC(Z,X) beta_optima","HSIC(Z,Y) beta=0","HSIC(Z,Y) beta_optima",RF Acc beta=0,RF Acc beta_optima,Criterio,Nota
+Aditivo Gaussiano,0.1,1.152108,1.142377,0.0587635,0.054905999999999996,0.11515900000000001,0.1131195,0.5962500000000001,0.5974999999999999,mejor compromiso (ninguna beta evita empeorar alguna metrica),
+Aditivo Exponencial,0.3,0.888199,0.885515,0.049406500000000006,0.044342,0.11509549999999999,0.11104449999999999,0.6875,0.68875,mejor compromiso (ninguna beta evita empeorar alguna metrica),
+Aditivo Gamma,0.2,1.160906,1.1609975000000001,0.17044700000000002,0.1596465,0.21860399999999997,0.195791,0.6075,0.6,mejor compromiso (ninguna beta evita empeorar alguna metrica),
+Aditivo Uniforme,0.1,0.989988,0.982344,0.045491500000000004,0.0428015,0.058507500000000004,0.054891,0.605,0.5900000000000001,domina al baseline (mejora >=1 metrica sin empeorar ninguna),
+Multiplicativo Gaussiano,0.5,1.0167235,0.9108034999999999,0.1513525,0.12418599999999999,0.07329100000000001,0.07260950000000001,0.6224999999999999,0.63375,mejor compromiso (ninguna beta evita empeorar alguna metrica),
+Multiplicativo Exponencial,0.6,0.7196277777777778,0.6517911111111112,0.22985555555555554,0.12568888888888888,0.059930000000000004,0.048732222222222225,0.7527777777777778,0.7472222222222222,domina al baseline (mejora >=1 metrica sin empeorar ninguna),⚠ datos parciales
+Multiplicativo Gamma,0.6,1.0008435,0.757684,0.21546149999999997,0.1571315,0.136271,0.0976415,0.65,0.61875,domina al baseline (mejora >=1 metrica sin empeorar ninguna),
+Multiplicativo Uniforme,0.5,0.7622340000000001,0.7440035,0.11080349999999999,0.09905800000000001,0.0859085,0.0882125,0.61625,0.6125,mejor compromiso (ninguna beta evita empeorar alguna metrica),
