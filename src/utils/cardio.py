@@ -285,6 +285,8 @@ def sweep_beta_weight(
     discrete_columns = [node for node in factual_eval.columns if len(factual_eval[node].unique()) <= 5]
 
     def evaluate_beta(beta):
+        if verbose:
+            print(f"[{model_name}] beta={beta} started", flush=True)
         candidate_checkpoint = checkpoint_root / make_run_id(f"{dataset}_{model_name}_b{beta}")
         candidate_checkpoint.mkdir(parents=True, exist_ok=True)
         params = _hybrid_node_params(arch_params, graph, beta, candidate_checkpoint)
@@ -309,11 +311,12 @@ def sweep_beta_weight(
         metric_rf_acc["all"] = float(rf(factual_eval.to_numpy(), obs_samples.to_numpy(), seed=int(sample_seed)))
 
         if verbose:
-            print(f"[{model_name}] beta={beta} alpha={round(1.0 - beta, 2)} -> RF ACC: {metric_rf_acc}")
+            print(f"[{model_name}] beta={beta} alpha={round(1.0 - beta, 2)} -> RF ACC: {metric_rf_acc}", flush=True)
         return beta, metric_mmd, metric_rf_acc
 
     print(f"Sweeping beta for {model_name} on {dataset} over {len(beta_values)} values: {beta_values}")
-    sweep = Parallel(n_jobs=n_jobs)(delayed(evaluate_beta)(beta) for beta in beta_values)
+    # verbose=10 makes joblib report "Done N out of M | elapsed | remaining" from the parent process.
+    sweep = Parallel(n_jobs=n_jobs, verbose=10)(delayed(evaluate_beta)(beta) for beta in beta_values)
     scores = {beta: (metric_mmd, metric_rf_acc) for beta, metric_mmd, metric_rf_acc in sweep}
 
     # Per-node criterion, identical to get_best_hyperparams: lower RF accuracy is better.
