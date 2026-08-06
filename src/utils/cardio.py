@@ -221,6 +221,17 @@ def resolve_cardio_best_params(
     return best_params
 
 
+def _timed_node_fit(fit, prefix, node, position, total):
+    """Wrap a node's fit so the sweep reports progress as each node of a beta completes."""
+    def wrapper(X, Y):
+        start = time.time()
+        result = fit(X, Y)
+        print(f"{prefix} node {position}/{total} {node} fitted in {time.time() - start:.0f}s", flush=True)
+        return result
+
+    return wrapper
+
+
 def _hybrid_node_params(arch_params, graph, beta, checkpoint_dir=None):
     """Overlay the hybrid loss weights (alpha = 1 - beta) on a fixed per-node architecture."""
     params = {}
@@ -264,6 +275,10 @@ def sweep_beta_weight(
     nodes: `kan_model_mixed` overrides discrete nodes to a cross-entropy loss, so no
     residual exists there for the HSIC term to act on and beta is inert.
 
+    With `verbose`, each beta reports one line per node as it finishes, so a multi-hour sweep
+    shows movement; those come from worker processes, so a notebook shows them in the kernel's
+    output channel rather than the cell.
+
     Returns (best_params_per_node, sweep_frame).
     """
     from joblib import Parallel, delayed
@@ -285,13 +300,21 @@ def sweep_beta_weight(
     discrete_columns = [node for node in factual_eval.columns if len(factual_eval[node].unique()) <= 5]
 
     def evaluate_beta(beta):
+        prefix = f"[{model_name}] beta={beta}"
         if verbose:
-            print(f"[{model_name}] beta={beta} started", flush=True)
+            print(f"{prefix} started", flush=True)
+        beta_start = time.time()
         candidate_checkpoint = checkpoint_root / make_run_id(f"{dataset}_{model_name}_b{beta}")
         candidate_checkpoint.mkdir(parents=True, exist_ok=True)
         params = _hybrid_node_params(arch_params, graph, beta, candidate_checkpoint)
 
         model = kan_model_mixed(graph, deepcopy(params))
+        if verbose:
+            fitted_nodes = [node for node in model.models if hasattr(model.models[node], "hyperparameters")]
+            for position, node in enumerate(fitted_nodes, start=1):
+                model.models[node].fit = _timed_node_fit(
+                    model.models[node].fit, prefix, node, position, len(fitted_nodes)
+                )
         model.fit(data=factual_train)
 
         np.random.seed(sample_seed)
@@ -311,7 +334,11 @@ def sweep_beta_weight(
         metric_rf_acc["all"] = float(rf(factual_eval.to_numpy(), obs_samples.to_numpy(), seed=int(sample_seed)))
 
         if verbose:
-            print(f"[{model_name}] beta={beta} alpha={round(1.0 - beta, 2)} -> RF ACC: {metric_rf_acc}", flush=True)
+            print(
+                f"{prefix} DONE in {time.time() - beta_start:.0f}s alpha={round(1.0 - beta, 2)} "
+                f"-> RF ACC: {metric_rf_acc}",
+                flush=True,
+            )
         return beta, metric_mmd, metric_rf_acc
 
     print(f"Sweeping beta for {model_name} on {dataset} over {len(beta_values)} values: {beta_values}")
