@@ -24,9 +24,9 @@ env/
 .conda/
 
 # Outputs and generated artifacts
-outputs/**
-!outputs/
-!outputs/**/
+# outputs/**
+# !outputs/
+# !outputs/**/
 !outputs/**/.gitkeep
 
 # Local environment and temporary files
