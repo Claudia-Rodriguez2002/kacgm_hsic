@@ -1,0 +1,3 @@
+N,beta_optima,MMD beta=0,MMD beta_optima,MMD p_valor,RF Acc beta=0,RF Acc beta_optima,RF Acc p_valor,n_pares,Cobertura,Criterio,Nota
+50,0.7,0.0475854,0.046454199999999994,0.439167153887448,0.7020000000000001,0.73,0.9909167071694834,50,5/11,mejor compromiso (ninguna beta evita empeorar alguna metrica),⚠ datos parciales (5/11)
+100,0.1,0.0443236,0.0448818,0.6154104433873155,0.6745,0.677,0.6391871697662042,50,5/11,mejor compromiso (ninguna beta evita empeorar alguna metrica),⚠ datos parciales (5/11)

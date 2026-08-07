@@ -2,6 +2,17 @@ import numpy as np
 import pandas as pd
 import networkx as nx
 
+# Ruido Gamma centrado en 0, con media 0 y varianza 1 (mismos momentos que una normal estandar),
+# para que sea un reemplazo directo del ruido gaussiano de synthetic.py sin tocar las ecuaciones
+# estructurales. shape=2.0 da una distribucion asimetrica (asimetria = 2/sqrt(shape)).
+_FORMA_GAMMA = 2.0
+_THETA_GAMMA = 1.0 / np.sqrt(_FORMA_GAMMA)
+_MEDIA_GAMMA = np.sqrt(_FORMA_GAMMA)
+
+
+def _ruido_gamma(num_samples):
+    return np.random.gamma(_FORMA_GAMMA, _THETA_GAMMA, num_samples) - _MEDIA_GAMMA
+
 def sigmoid(x):
     mask = x >= 0
     z = np.zeros_like(x)
@@ -30,9 +41,9 @@ class graph_data(object):
             np.random.seed(seed)
 
         if self.name == '3-chain-linear':
-            u1 = np.random.normal(0, 1, num_samples)
-            u2 = np.random.normal(0, 1, num_samples)
-            u3 = np.random.normal(0, 1, num_samples)
+            u1 = _ruido_gamma(num_samples)
+            u2 = _ruido_gamma(num_samples)
+            u3 = _ruido_gamma(num_samples)
             x1 = u1
             x2 = 10 * x1 - u2
             x2, mean_x2, std_x2 = self.standardize(x2)
@@ -70,9 +81,9 @@ class graph_data(object):
 
 
         elif self.name == '3-chain-non-linear':
-            u1 = np.random.normal(0, 1, num_samples)
-            u2 = np.random.normal(0, 1, num_samples)
-            u3 = np.random.normal(0, 1, num_samples)
+            u1 = _ruido_gamma(num_samples)
+            u2 = _ruido_gamma(num_samples)
+            u3 = _ruido_gamma(num_samples)
             x1 = u1
             x2 = np.exp(x1 / 2.0) + x1 * u2 / 4.0
             x2, mean_x2, std_x2 = self.standardize(x2)
@@ -109,10 +120,10 @@ class graph_data(object):
                        'x2_str': f'(exp(x1 / 2.0) - {mean_x2}) / {std_x3}', 'x3_str': f'((x2 - 5) ** 3 / 15.0 - {mean_x3}) / {std_x3}'}
 
         elif self.name == '4-chain-linear':
-            u1 = np.random.normal(0, 1, num_samples)
-            u2 = np.random.normal(0, 1, num_samples)
-            u3 = np.random.normal(0, 1, num_samples)
-            u4 = np.random.normal(0, 1, num_samples)
+            u1 = _ruido_gamma(num_samples)
+            u2 = _ruido_gamma(num_samples)
+            u3 = _ruido_gamma(num_samples)
+            u4 = _ruido_gamma(num_samples)
             x1 = u1
             x2 = 5 * x1 - x1 * u2
             x2, mean_x2, std_x2 = self.standardize(x2)
@@ -156,11 +167,11 @@ class graph_data(object):
                        'x2_str': f'(5 * x1 - {mean_x2})/{std_x2}', 'x3_str': f'(-0.5 * x2 - {mean_x3})/{std_x3}', 'x4_str': f'(x3 - {mean_x4})/{std_x4}'}
 
         elif self.name == '5-chain-linear':
-            u1 = np.random.normal(0, 1, num_samples)
-            u2 = np.random.normal(0, 1, num_samples)
-            u3 = np.random.normal(0, 1, num_samples)
-            u4 = np.random.normal(0, 1, num_samples)
-            u5 = np.random.normal(0, 1, num_samples)
+            u1 = _ruido_gamma(num_samples)
+            u2 = _ruido_gamma(num_samples)
+            u3 = _ruido_gamma(num_samples)
+            u4 = _ruido_gamma(num_samples)
+            u5 = _ruido_gamma(num_samples)
             x1 = u1
             x2 = 10 * x1 - u2
             x2, mean_x2, std_x2 = self.standardize(x2)
@@ -209,9 +220,9 @@ class graph_data(object):
                        'x2_str': f'(10 * x1 - {mean_x2}) / {std_x2}', 'x3_str': f'(0.25 * x2 - {mean_x3})/{std_x3}', 'x4_str': f'(x3 - {mean_x4})/{std_x4}', 'x5_str': f'(-x4 - {mean_x5})/{std_x5}'}
 
         elif self.name == 'collider-linear':
-            u1 = np.random.normal(0, 1, num_samples)
-            u2 = np.random.normal(0, 1, num_samples)
-            u3 = np.random.normal(0, 1, num_samples)
+            u1 = _ruido_gamma(num_samples)
+            u2 = _ruido_gamma(num_samples)
+            u3 = _ruido_gamma(num_samples)
             x1 = u1
             x2 = 2 - u2
             x2, mean_x2, std_x2 = self.standardize(x2)
@@ -248,10 +259,10 @@ class graph_data(object):
                        'x2_str': f'(2-{mean_x2})/{std_x2}', 'x3_str': f'(0.25 * x2 - 0.5 * x1 - {mean_x3})/{std_x3}'}
 
         elif self.name == 'fork-linear':
-            u1 = np.random.normal(0, 1, num_samples)
-            u2 = np.random.normal(0, 1, num_samples)
-            u3 = np.random.normal(0, 1, num_samples)
-            u4 = np.random.normal(0, 1, num_samples)
+            u1 = _ruido_gamma(num_samples)
+            u2 = _ruido_gamma(num_samples)
+            u3 = _ruido_gamma(num_samples)
+            u4 = _ruido_gamma(num_samples)
             x1 = u1
             x2 = 2 - u2
             x2, mean_x2, std_x2 = self.standardize(x2)
@@ -294,10 +305,10 @@ class graph_data(object):
                        'x2_str': f'(2 - {mean_x2})/{std_x2}', 'x3_str': f'(0.25 * x2 - 1.5 * x1 - {mean_x3})/{std_x3}', 'x4_str': f'(x3-{mean_x4})/{std_x4}'}
 
         elif self.name == 'fork-non-linear':
-            u1 = np.random.normal(0, 1, num_samples)
-            u2 = np.random.normal(0, 1, num_samples)
-            u3 = np.random.normal(0, 1, num_samples)
-            u4 = np.random.normal(0, 1, num_samples)
+            u1 = _ruido_gamma(num_samples)
+            u2 = _ruido_gamma(num_samples)
+            u3 = _ruido_gamma(num_samples)
+            u4 = _ruido_gamma(num_samples)
             x1 = u1
             x2 = u2
             x3 = 4 / (1 + np.exp(- x1 - x2)) - x2 ** 2 + 0.5 * x1 * u3
@@ -340,10 +351,10 @@ class graph_data(object):
                        'x4_str': f'(20 / (1 + exp(0.5 * x3 ** 2 - x3)) - {mean_x4}) / {std_x4}'}
 
         elif self.name == 'simpson-non-linear':
-            u1 = np.random.normal(0, 1, num_samples)
-            u2 = np.random.normal(0, 1, num_samples)
-            u3 = np.random.normal(0, 1, num_samples)
-            u4 = np.random.normal(0, 1, num_samples)
+            u1 = _ruido_gamma(num_samples)
+            u2 = _ruido_gamma(num_samples)
+            u3 = _ruido_gamma(num_samples)
+            u4 = _ruido_gamma(num_samples)
             x1 = u1
             x2 = self.s(1 - x1) + np.sqrt(3 / 20) * u2
             x2, mean_x2, std_x2 = self.standardize(x2)
@@ -390,10 +401,10 @@ class graph_data(object):
                        'x4_str': f'((x3 - 4) / 5 + 3 - {mean_x4}) / {std_x4}'}
 
         elif self.name == 'simpson-symprod':
-            u1 = np.random.normal(0, 1, num_samples)
-            u2 = np.random.normal(0, 1, num_samples)
-            u3 = np.random.normal(0, 1, num_samples)
-            u4 = np.random.normal(0, 1, num_samples)
+            u1 = _ruido_gamma(num_samples)
+            u2 = _ruido_gamma(num_samples)
+            u3 = _ruido_gamma(num_samples)
+            u4 = _ruido_gamma(num_samples)
             x1 = u1
             x2 = 2 * np.tanh(2 * x1) + x1 * u2 /np.sqrt(10)
             x2, mean_x2, std_x2 = self.standardize(x2)
@@ -441,9 +452,9 @@ class graph_data(object):
                        'x4_str': f'(tanh(1.5 * x1) - {mean_x4}) / {std_x4}'}
 
         elif self.name == 'triangle-linear':
-            u1 = np.random.normal(0, 1, num_samples)
-            u2 = np.random.normal(0, 1, num_samples)
-            u3 = np.random.normal(0, 1, num_samples)
+            u1 = _ruido_gamma(num_samples)
+            u2 = _ruido_gamma(num_samples)
+            u3 = _ruido_gamma(num_samples)
             x1 = u1
             x2 = 10 * x1 - u2
             x2, mean_x2, std_x2 = self.standardize(x2)
@@ -480,9 +491,9 @@ class graph_data(object):
                        'x2_str': f'(10 * x1 - {mean_x2}) / {std_x2}', 'x3_str': f'(0.5 * x2 + x1 - {mean_x3}) / {std_x3}'}
 
         elif self.name == 'triangle-non-linear':
-            u1 = np.random.normal(0, 1, num_samples)
-            u2 = np.random.normal(0, 1, num_samples)
-            u3 = np.random.normal(0, 1, num_samples)
+            u1 = _ruido_gamma(num_samples)
+            u2 = _ruido_gamma(num_samples)
+            u3 = _ruido_gamma(num_samples)
             x1 = u1  # IMPORTANT: In the original code, here we had u1+1, we set it to u1 to be consistent with other graphs
             x2 = 2 * x1 ** 2 + u2
             x2, mean_x2, std_x2 = self.standardize(x2)
@@ -519,9 +530,9 @@ class graph_data(object):
                        'x2_str': f'(2 * x1 ** 2 - {mean_x2}) / {std_x2}', 'x3_str': f'(20 / (1 + exp(- x2 ** 2 + x1)) - {mean_x3}) / {std_x3}'}
 
         elif self.name == 'triangle-non-linear-2':
-            u1 = np.random.normal(0, 1, num_samples)
-            u2 = np.random.normal(0, 1, num_samples)
-            u3 = np.random.normal(0, 1, num_samples)
+            u1 = _ruido_gamma(num_samples)
+            u2 = _ruido_gamma(num_samples)
+            u3 = _ruido_gamma(num_samples)
             x1 = u1
             x2 = sigmoid(x1)**0.5 - x1 - u2
             # x2, mean_x2, std_x2 = self.standardize(x2)
@@ -561,9 +572,9 @@ class graph_data(object):
 
         elif self.name == 'triangle-sensitivity-nonlinear':
             #test that alpha is not none
-            u1 = np.random.normal(0, 1, num_samples)
-            u2 = np.random.normal(0, 1, num_samples)
-            u3 = np.random.normal(0, 1, num_samples)
+            u1 = _ruido_gamma(num_samples)
+            u2 = _ruido_gamma(num_samples)
+            u3 = _ruido_gamma(num_samples)
             x1 = u1
             x2 = 1/2 * x1 + 0.1*x1**2 + 0.6*u2
             x2, mean_x2, std_x2 = self.standardize(x2)

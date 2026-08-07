@@ -1,0 +1,3 @@
+N,beta_optima,MMD beta=0,MMD beta_optima,MMD p_valor,RF Acc beta=0,RF Acc beta_optima,RF Acc p_valor,n_pares,Cobertura,Criterio,Nota
+50,0.2,0.07308718181818183,0.06980372727272728,0.0008942155195135558,0.7615909090909091,0.7554545454545454,0.12182366051155696,110,11/11,domina al baseline (mejora >=1 metrica sin empeorar ninguna),
+100,0.2,0.06760781818181819,0.066059,0.027861115381843,0.744090909090909,0.7495454545454546,0.9604247546073846,110,11/11,mejor compromiso (ninguna beta evita empeorar alguna metrica),
