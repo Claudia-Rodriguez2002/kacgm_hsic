@@ -8,7 +8,7 @@ from dowhy.gcm import EmpiricalDistribution, ScipyDistribution, StructuralCausal
 from dowhy.gcm.causal_mechanisms import FunctionalCausalModel, StochasticModel
 from dowhy.gcm.util.general import shape_into_2d
 from dowhy.graph import is_root_node, get_ordered_predecessors
-from dowhy.gcm.whatif import _parent_samples_of, _evaluate_intervention
+from dowhy.gcm.whatif import _parent_samples_of, _evaluate_intervention, counterfactual_samples
 
 graph_sachs = nx.DiGraph([ ('plcg', 'PIP3'), ('plcg', 'PIP2'), ('PIP3', 'PIP2'),
                            ('PKC', 'PKA'), ('PKC', 'pjnk'), ('PKC', 'P38'),
