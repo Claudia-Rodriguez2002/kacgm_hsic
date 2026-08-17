@@ -34,6 +34,7 @@ for node in graph_sachs.nodes():
     noises_distr[node] = Normal(0, 1)
 
 def get_structural_equations_sachs():
+    np.random.seed(42)
     weights_additive = {}
 
     for node in graph_sachs.nodes():
