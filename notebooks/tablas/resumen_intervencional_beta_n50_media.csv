@@ -1,9 +1,9 @@
 Experimento,beta_optima,MAE(Z) beta=0,MAE(Z) beta_optima,"HSIC(Z,X) beta=0","HSIC(Z,X) beta_optima",RF Acc beta=0,RF Acc beta_optima,Criterio
-Aditivo Gaussiano,0.4,0.9716265,0.9617077500000001,0.075416,0.06711975,0.584375,0.569375,domina al baseline (mejora >=1 metrica sin empeorar ninguna)
-Aditivo Exponencial,0.1,0.8995832500000001,0.9033895,0.11215525,0.1084125,0.665625,0.665625,mejor compromiso (ninguna beta evita empeorar alguna metrica)
-Aditivo Gamma,0.3,0.9309157499999999,0.9252535,0.19695625,0.17605025000000002,0.7318749999999999,0.723125,domina al baseline (mejora >=1 metrica sin empeorar ninguna)
-Aditivo Uniforme,0.2,0.94621125,0.94286575,0.061146,0.05591425,0.6174999999999999,0.619375,mejor compromiso (ninguna beta evita empeorar alguna metrica)
-Multiplicativo Gaussiano,0.9,0.8881560000000001,0.8324719999999999,0.28019249999999996,0.19020949999999998,0.66625,0.6575,domina al baseline (mejora >=1 metrica sin empeorar ninguna)
-Multiplicativo Exponencial,0.9,0.645526,0.6328985,0.283791,0.1332675,0.73,0.69375,domina al baseline (mejora >=1 metrica sin empeorar ninguna)
-Multiplicativo Gamma,0.7,0.7034290000000001,0.5863444999999999,0.325809,0.2236895,0.72875,0.6837500000000001,domina al baseline (mejora >=1 metrica sin empeorar ninguna)
-Multiplicativo Uniforme,0.5,0.726031,0.7200445,0.1266505,0.11321250000000001,0.56875,0.56625,domina al baseline (mejora >=1 metrica sin empeorar ninguna)
+Aditivo Gaussiano,0.1,0.9716265,0.9637707499999999,0.075416,0.07016875,0.584375,0.55125,menor RF Acc media
+Aditivo Exponencial,0.1,0.8995832500000001,0.9033895,0.11215525,0.1084125,0.665625,0.665625,menor RF Acc media
+Aditivo Gamma,0.6,0.9309157499999999,0.97996725,0.19695625,0.19957975,0.7318749999999999,0.716875,menor RF Acc media
+Aditivo Uniforme,0.4,0.94621125,0.9594922499999999,0.061146,0.05728925,0.6174999999999999,0.61375,menor RF Acc media
+Multiplicativo Gaussiano,0.9,0.8881560000000001,0.8324719999999999,0.28019249999999996,0.19020949999999998,0.66625,0.6575,menor RF Acc media
+Multiplicativo Exponencial,0.2,0.645526,0.591844,0.283791,0.2031545,0.73,0.6875,menor RF Acc media
+Multiplicativo Gamma,0.5,0.7034290000000001,0.638197,0.325809,0.270967,0.72875,0.68125,menor RF Acc media
+Multiplicativo Uniforme,0.9,0.726031,0.7399245000000001,0.1266505,0.150729,0.56875,0.5650000000000001,menor RF Acc media
