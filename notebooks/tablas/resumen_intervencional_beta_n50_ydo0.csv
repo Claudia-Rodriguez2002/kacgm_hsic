@@ -1,9 +1,9 @@
 Experimento,beta_optima,MAE(Z) beta=0,MAE(Z) beta_optima,"HSIC(Z,X) beta=0","HSIC(Z,X) beta_optima",RF Acc beta=0,RF Acc beta_optima,Criterio
-Aditivo Gaussiano,0.1,1.021623,1.0155545,0.08842249999999999,0.0847745,0.5862499999999999,0.55375,menor RF Acc media
-Aditivo Exponencial,0.1,0.9842625,0.9909865,0.12201949999999999,0.120058,0.66625,0.66625,menor RF Acc media
-Aditivo Gamma,0.3,1.00984,0.9780380000000001,0.22255799999999998,0.19973749999999998,0.75,0.72875,menor RF Acc media
-Aditivo Uniforme,0.1,0.9666724999999999,0.95687,0.073486,0.06648899999999999,0.6275000000000001,0.61,menor RF Acc media
-Multiplicativo Gaussiano,0.9,1.063698,1.001131,0.207959,0.143017,0.6725,0.65,menor RF Acc media
-Multiplicativo Exponencial,0.2,0.752575,0.719217,0.212767,0.159723,0.7,0.6625,menor RF Acc media
-Multiplicativo Gamma,0.5,0.8261049999999999,0.7344160000000001,0.244681,0.216825,0.7025,0.635,menor RF Acc media
-Multiplicativo Uniforme,0.1,0.9239710000000001,0.9207179999999999,0.098639,0.09160599999999999,0.5700000000000001,0.575,menor RF Acc media
+Aditivo Gaussiano,0.9,1.021623,1.250481,0.08842249999999999,0.136305,0.5862499999999999,0.6075,Beta importada de Resumen_Observacional (N=50)
+Aditivo Exponencial,0.9,0.9842625,1.1480169999999998,0.12201949999999999,0.11286149999999999,0.66625,0.68125,Beta importada de Resumen_Observacional (N=50)
+Aditivo Gamma,0.9,1.00984,1.2730105,0.22255799999999998,0.307417,0.75,0.7737499999999999,Beta importada de Resumen_Observacional (N=50)
+Aditivo Uniforme,0.3,0.9666724999999999,0.9972825000000001,0.073486,0.071992,0.6275000000000001,0.6224999999999999,Beta importada de Resumen_Observacional (N=50)
+Multiplicativo Gaussiano,0.4,1.063698,1.028976,0.207959,0.184642,0.6725,0.6675,Beta importada de Resumen_Observacional (N=50)
+Multiplicativo Exponencial,0.1,0.752575,0.727385,0.212767,0.173136,0.7,0.675,Beta importada de Resumen_Observacional (N=50)
+Multiplicativo Gamma,0.6,0.8261049999999999,0.6911660000000001,0.244681,0.18478,0.7025,0.645,Beta importada de Resumen_Observacional (N=50)
+Multiplicativo Uniforme,0.4,0.9239710000000001,0.9163589999999999,0.098639,0.08064400000000001,0.5700000000000001,0.58,Beta importada de Resumen_Observacional (N=50)
