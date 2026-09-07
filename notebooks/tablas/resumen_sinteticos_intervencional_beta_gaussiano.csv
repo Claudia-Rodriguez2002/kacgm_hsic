@@ -1,3 +1,0 @@
-N,beta_optima,MMD beta=0,MMD beta_optima,MMD p_valor,RF Acc beta=0,RF Acc beta_optima,RF Acc p_valor,n_pares,Cobertura,Criterio,Nota
-50,0.3,0.053107909090909095,0.051115818181818186,0.013713668716808673,0.7263636363636364,0.7229545454545455,0.15788666026830533,110,11/11,"Beta importada de Resumen_Sinteticos_Observacional (Ruido=Gaussiano, N=50)",
-100,0.4,0.043353,0.04408927272727273,0.35106696281697547,0.7006818181818182,0.6952272727272727,0.2203348679233888,110,11/11,"Beta importada de Resumen_Sinteticos_Observacional (Ruido=Gaussiano, N=100)",

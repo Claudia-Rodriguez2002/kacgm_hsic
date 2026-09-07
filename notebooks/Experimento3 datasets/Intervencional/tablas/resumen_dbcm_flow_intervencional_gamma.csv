@@ -1,5 +1,0 @@
-Modelo,Metrica,mean,std
-DBCM,MMD,0.03904,0.02775
-DBCM,RF Acc,0.74659,0.14612
-CausalFlow,MMD,0.04009,0.02593
-CausalFlow,RF Acc,0.7617,0.13849

@@ -1,0 +1,9 @@
+Experimento,beta_optima,MAE(Z) beta=0,MAE(Z) beta_optima,"HSIC(Z,X) beta=0","HSIC(Z,X) beta_optima",RF Acc beta=0,RF Acc beta_optima,Criterio
+Aditivo Gaussiano,0.8,0.9302265000000001,1.0765280000000002,0.064162,0.065064,0.56375,0.5525,Beta importada de Resumen_Observacional (N=100)
+Aditivo Exponencial,0.4,0.9159879999999999,0.8692460000000001,0.1094155,0.0857035,0.65625,0.6599999999999999,Beta importada de Resumen_Observacional (N=100)
+Aditivo Gamma,0.6,0.918567,1.0726055,0.19647699999999998,0.19612100000000002,0.7224999999999999,0.76,Beta importada de Resumen_Observacional (N=100)
+Aditivo Uniforme,0.5,0.9464435,0.9791890000000001,0.050635,0.057396,0.60375,0.61625,Beta importada de Resumen_Observacional (N=100)
+Multiplicativo Gaussiano,0.2,0.945354,0.929546,0.10453700000000002,0.088949,0.71,0.6925,Beta importada de Resumen_Observacional (N=100)
+Multiplicativo Exponencial,0.6,0.752205,0.724365,0.198909,0.141042,0.6900000000000001,0.6900000000000001,Beta importada de Resumen_Observacional (N=100)
+Multiplicativo Gamma,0.3,0.714912,0.6534530000000001,0.168523,0.10027699999999999,0.6875,0.65,Beta importada de Resumen_Observacional (N=100)
+Multiplicativo Uniforme,0.7,0.905089,0.916309,0.08428899999999999,0.099581,0.6275,0.61,Beta importada de Resumen_Observacional (N=100)
